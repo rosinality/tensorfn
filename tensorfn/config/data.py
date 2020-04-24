@@ -1,13 +1,12 @@
 from typing import Tuple, Union, List, Optional, Any, Callable
 
 from pydantic import BaseModel, StrictInt, StrictBool
-from torch.utils.data import DataLoader
+from torch.utils import data
 
 from tensorfn.config import Config
 
 
 class DataLoader(Config):
-    dataset: Any
     batch_size: StrictInt = 1
     shuffle: StrictBool = False
     num_workers: StrictInt = 0
@@ -24,8 +23,8 @@ class DataLoader(Config):
         worker_init_fn=None,
         multiprocessing_context=None,
     ):
-        return DataLoader(
-            self.dataset,
+        return data.DataLoader(
+            dataset,
             self.batch_size,
             self.shuffle,
             sampler,

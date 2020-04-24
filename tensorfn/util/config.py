@@ -55,7 +55,7 @@ def preset_argparser():
 
 
 def load_config(config_model, config, overrides=(), show=True):
-    conf = ConfigModel(**read_config(args.conf, overrides=args.opts))
+    conf = config_model(**read_config(config, overrides=overrides))
 
     if show and is_primary():
         pprint(conf.dict())
@@ -68,6 +68,7 @@ def load_arg_config(config_model, show=True):
     args = parser.parse_args()
 
     conf = load_config(config_model, args.conf, args.opts, show)
+
     conf.ckpt = args.ckpt
     conf.local_rank = args.local_rank
 

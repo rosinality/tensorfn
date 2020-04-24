@@ -50,7 +50,7 @@ class Adam(Config):
         return v
 
     def make(self, params):
-        return optim.SGD(
+        return optim.Adam(
             params, self.lr, self.betas, self.eps, self.weight_decay, self.amsgrad
         )
 
@@ -72,7 +72,7 @@ class AdamW(Config):
         return v
 
     def make(self, params):
-        return optim.SGD(
+        return optim.AdamW(
             params, self.lr, self.betas, self.eps, self.weight_decay, self.amsgrad
         )
 

@@ -5,5 +5,6 @@ from .distributed import (
     get_world_size,
     all_gather,
     reduce_dict,
+    data_sampler,
 )
 

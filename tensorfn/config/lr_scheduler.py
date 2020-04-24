@@ -3,6 +3,21 @@ from typing import Tuple, Union, List
 from pydantic import BaseModel, validator, StrictStr, StrictFloat, StrictInt, StrictBool
 
 from tensorfn.config import Config
+from tensorfn.optim import lr_scheduler
+
+
+class No(Config):
+    type: StrictStr
+
+    @validator("type")
+    def check_type(cls, v):
+        if v != "no":
+            raise ValueError("Optimizer options not match for no (blank scheduler)")
+
+        return v
+
+    def make(self, optimizer):
+        return lr_scheduler.NoScheduler(optimizer)
 
 
 class Cycle(Config):
@@ -23,6 +38,18 @@ class Cycle(Config):
 
         return v
 
+    def make(self, optimizer):
+        return lr_scheduler.cycle_scheduler(
+            optimizer,
+            self.lr,
+            self.n_iter,
+            self.initial_multiplier,
+            self.final_multiplier,
+            self.warmup,
+            self.plateau,
+            self.decay,
+        )
+
 
 class Step(Config):
     type: StrictStr
@@ -40,6 +67,16 @@ class Step(Config):
 
         return v
 
+    def make(self, optimizer):
+        return lr_scheduler.step_scheduler(
+            optimizer,
+            self.lr,
+            self.milestones,
+            self.gamma,
+            self.warmup,
+            self.warmup_multiplier,
+        )
+
 
 class LRFind(Config):
     type: StrictStr
@@ -55,6 +92,11 @@ class LRFind(Config):
             raise ValueError("Optimizer options not match for cycle")
 
         return v
+
+    def make(self, optimizer):
+        return lr_scheduler.lr_finder(
+            optimizer, self.lr_min, self.lr_max, self.n_iter, self.linear
+        )
 
 
 Scheduler = Union[Cycle, Step, LRFind]

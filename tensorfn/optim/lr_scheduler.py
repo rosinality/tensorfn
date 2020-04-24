@@ -1,6 +1,11 @@
 from math import cos, pi, tanh
 from functools import partial
 
+import torch
+
+
+__all__ = ["NoScheduler", "cycle_scheduler", "step_scheduler", "lr_finder"]
+
 
 def anneal_linear(start, end, proportion):
     return start + proportion * (end - start)
@@ -34,6 +39,19 @@ def anneal_flat(start, end, proportion):
     return start
 
 
+def anneal_exp(start, end, proportion):
+    return start * (end / start) ** proportion
+
+
+class NoScheduler:
+    def __init__(self, optimizer):
+        self.optimizer = optimizer
+        self.lr = self.optimizer.param_groups[0]["lr"]
+
+    def step(self):
+        return self.lr
+
+
 class PhaseScheduler:
     def __init__(self, optimizer, phases):
         self.optimizer = optimizer
@@ -44,6 +62,7 @@ class PhaseScheduler:
             "cospow": anneal_cospow,
             "poly": anneal_poly,
             "tanh": anneal_tanh,
+            "exp": anneal_exp,
         }
 
         self.lr_phase = []
@@ -62,6 +81,25 @@ class PhaseScheduler:
         self.phase = 0
         self.phase_step = 0
 
+        self.latest_lr = None
+        self.loss_log = []
+
+    def state_dict(self):
+        return {
+            "lr_phase": self.lr_phase,
+            "phase": self.phase,
+            "phase_step": self.phase_step,
+            "latest_lr": self.latest_lr,
+            "loss_log": self.loss_log,
+        }
+
+    def load_state_dict(self, state_dict):
+        self.lr_phase = state_dict["lr_phase"]
+        self.phase = state_dict["phase"]
+        self.phase_step = state_dict["phase_step"]
+        self.latest_lr = state_dict["latest_lr"]
+        self.loss_log = state_dict["loss_log"]
+
     def __repr__(self):
         return f"PhaseScheduler(phases={self.lr_phase})"
 
@@ -77,11 +115,24 @@ class PhaseScheduler:
         for group in self.optimizer.param_groups:
             group["lr"] = lr
 
+        self.latest_lr = lr
+
         if self.phase_step > phase_iter:
             self.phase += 1
             self.phase_step = 0
 
         return lr
+
+    def record_loss(self, loss):
+        if isinstance(loss, torch.Tensor):
+            loss = loss.item()
+
+        self.loss_log.append((self.latest_lr, loss))
+
+    def write_log(self, filename):
+        with open(filename, "w") as f:
+            for lr, loss in self.loss_log:
+                f.write(f"{lr},{loss}\n")
 
 
 def cycle_scheduler(
@@ -129,5 +180,13 @@ def step_scheduler(
 
         current_lr *= gamma
         steps = current
+
+    return PhaseScheduler(optimizer, phases)
+
+
+def lr_finder(optimizer, lr_min, lr_max, n_iter, linear=False):
+    decay = "linear" if linear else "exp"
+
+    phases = [(decay, lr_min, lr_max, n_iter)]
 
     return PhaseScheduler(optimizer, phases)
