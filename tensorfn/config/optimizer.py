@@ -4,6 +4,7 @@ from pydantic import BaseModel, validator, StrictStr, StrictFloat, StrictBool
 from torch import optim
 
 from tensorfn.config import Config
+from tensorfn import optim as tensor_optim
 
 
 class SGD(Config):
@@ -77,8 +78,29 @@ class AdamW(Config):
         )
 
 
+class LAMB(Config):
+    type: StrictStr
+
+    lr: StrictFloat = 0.001
+    betas: Tuple[StrictFloat, StrictFloat] = (0.9, 0.999)
+    eps: StrictFloat = 1e-6
+    weight_decay: StrictFloat = 0
+
+    @validator("type")
+    def check_type(cls, v):
+        if v != "lamb":
+            raise ValueError("Optimizer type not match for adam")
+
+        return v
+
+    def make(self, params):
+        return tensor_optim.LAMB(
+            params, self.lr, self.betas, self.eps, self.weight_decay
+        )
+
+
 def make_optimizer(config, params):
     return config.make(params)
 
 
-Optimizer = Union[SGD, Adam, AdamW]
+Optimizer = Union[SGD, Adam, AdamW, LAMB]

@@ -4,7 +4,7 @@ from functools import partial
 import torch
 
 
-__all__ = ["NoScheduler", "cycle_scheduler", "step_scheduler", "lr_finder"]
+__all__ = ["ConstantScheduler", "cycle_scheduler", "step_scheduler", "lr_finder"]
 
 
 def anneal_linear(start, end, proportion):
@@ -43,7 +43,7 @@ def anneal_exp(start, end, proportion):
     return start * (end / start) ** proportion
 
 
-class NoScheduler:
+class ConstantScheduler:
     def __init__(self, optimizer):
         self.optimizer = optimizer
         self.lr = self.optimizer.param_groups[0]["lr"]

@@ -6,18 +6,18 @@ from tensorfn.config import Config
 from tensorfn.optim import lr_scheduler
 
 
-class No(Config):
+class Constant(Config):
     type: StrictStr
 
     @validator("type")
     def check_type(cls, v):
-        if v != "no":
-            raise ValueError("Optimizer options not match for no (blank scheduler)")
+        if v != "constant":
+            raise ValueError("Optimizer options not match for constant scheduler")
 
         return v
 
     def make(self, optimizer):
-        return lr_scheduler.NoScheduler(optimizer)
+        return lr_scheduler.ConstantScheduler(optimizer)
 
 
 class Cycle(Config):
@@ -99,4 +99,4 @@ class LRFind(Config):
         )
 
 
-Scheduler = Union[Cycle, Step, LRFind]
+Scheduler = Union[Constant, Cycle, Step, LRFind]
