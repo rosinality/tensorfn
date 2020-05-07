@@ -6,7 +6,7 @@ import os
 from pprint import pprint
 import sys
 
-from pyhocon import ConfigFactory, ConfigMissingException
+from pyhocon import ConfigFactory, ConfigTree
 
 from tensorfn.distributed import is_primary
 
@@ -14,33 +14,10 @@ from tensorfn.distributed import is_primary
 def read_config(config_file, overrides=(), strict=False):
     conf = ConfigFactory.parse_file(config_file)
 
-    for override in overrides:
-        key, value = override.split("=", 1)
-
-        try:
-            original = conf.get(key)
-
-        except ConfigMissingException:
-            if strict:
-                raise KeyError(f"Config '{key}' is missing")
-
-        new = ast.literal_eval(value)
-
-        if strict and type(original) != type(new):
-            if not (
-                isinstance(original, (tuple, list)) and isinstance(new, (tuple, list))
-            ):
-                expected_type = type(original).__name__
-                new_type = type(new).__name__
-
-                raise ValueError(
-                    (
-                        f"{new} of type '{new_type}' for {key} is incompatible with"
-                        f" expected type '{expected_type}'"
-                    )
-                )
-
-        conf.put(key, new)
+    if len(overrides) > 0:
+        for override in overrides:
+            conf_overrides = ConfigFactory.parse_string(override)
+            conf = ConfigTree.merge_configs(conf, conf_overrides)
 
     return conf.as_plain_ordered_dict()
 
