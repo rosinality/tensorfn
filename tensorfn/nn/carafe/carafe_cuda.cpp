@@ -38,11 +38,12 @@ int CARAFEBackwardLaucher(const at::Tensor top_grad, const at::Tensor rfeatures,
                           at::Tensor rmask_grad, at::Tensor bottom_grad,
                           at::Tensor mask_grad);
 
-#define CHECK_CUDA(x) AT_CHECK(x.type().is_cuda(), #x, " must be a CUDAtensor ")
-#define CHECK_CONTIGUOUS(x) \
-  AT_CHECK(x.is_contiguous(), #x, " must be contiguous ")
-#define CHECK_INPUT(x) \
-  CHECK_CUDA(x);       \
+#define CHECK_CUDA(x)                                                          \
+  TORCH_CHECK(x.device().is_cuda(), #x, " must be a CUDAtensor ")
+#define CHECK_CONTIGUOUS(x)                                                    \
+  TORCH_CHECK(x.is_contiguous(), #x, " must be contiguous ")
+#define CHECK_INPUT(x)                                                         \
+  CHECK_CUDA(x);                                                               \
   CHECK_CONTIGUOUS(x)
 
 int carafe_forward_cuda(at::Tensor features, at::Tensor rfeatures,
