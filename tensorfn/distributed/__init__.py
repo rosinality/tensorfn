@@ -4,6 +4,7 @@ from .distributed import (
     is_primary,
     synchronize,
     get_world_size,
+    all_reduce,
     all_gather,
     reduce_dict,
     data_sampler,
