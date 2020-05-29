@@ -20,12 +20,14 @@ from torch.nn import functional as F
 from torch.autograd import Function
 from torch.utils.cpp_extension import load
 
+from tensorfn.util import LazyExtension
+
 module_path = os.path.dirname(__file__)
-carafe_cuda = load(
-    'carafe',
+carafe_cuda = LazyExtension(
+    "carafe",
     sources=[
-        os.path.join(module_path, 'carafe_cuda.cpp'),
-        os.path.join(module_path, 'carafe_cuda_kernel.cu'),
+        os.path.join(module_path, "carafe_cuda.cpp"),
+        os.path.join(module_path, "carafe_cuda_kernel.cu"),
     ],
 )
 
@@ -51,7 +53,7 @@ class CARAFEFunction(Function):
         rfeatures = features.new_zeros(features.size(), requires_grad=False)
         rmasks = masks.new_zeros(masks.size(), requires_grad=False)
         if features.is_cuda:
-            carafe_cuda.forward(
+            carafe_cuda.get().forward(
                 features,
                 rfeatures,
                 masks,
@@ -84,7 +86,7 @@ class CARAFEFunction(Function):
         rgrad_masks = torch.zeros_like(masks, requires_grad=False)
         grad_input = torch.zeros_like(features, requires_grad=False)
         grad_masks = torch.zeros_like(masks, requires_grad=False)
-        carafe_cuda.backward(
+        carafe_cuda.get().backward(
             grad_output.contiguous(),
             rfeatures,
             masks,
