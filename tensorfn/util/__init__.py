@@ -4,6 +4,8 @@ from tensorfn.util.config import (
     load_config,
     load_arg_config,
 )
+from tensorfn.util.ensure import ensure_tuple
+from tensorfn.util.lazy_extension import LazyExtension
 
 
 def load_wandb():
