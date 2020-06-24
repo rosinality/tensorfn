@@ -94,6 +94,7 @@ class LMDBReader:
     def __len__(self):
         if self.length is None:
             self.open()
+            self.close()
 
         return self.length
 
