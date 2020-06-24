@@ -56,6 +56,17 @@ class PhaseScheduler:
     def __init__(self, optimizer, phases):
         self.optimizer = optimizer
 
+        self.phase_param = phases
+
+        self.lr_phase = self.make_phase(phases)
+
+        self.phase = 0
+        self.phase_step = 0
+
+        self.latest_lr = None
+        self.loss_log = []
+
+    def make_phase(self, phases):
         phase_map = {
             "linear": anneal_linear,
             "cos": anneal_cos,
@@ -63,9 +74,10 @@ class PhaseScheduler:
             "poly": anneal_poly,
             "tanh": anneal_tanh,
             "exp": anneal_exp,
+            "flat": anneal_flat,
         }
 
-        self.lr_phase = []
+        lr_phase = []
 
         for phase in phases:
             if len(phase) == 4:
@@ -76,25 +88,21 @@ class PhaseScheduler:
                 phase_name, lr_from, lr_to, phase_iter, phase_args = phase
                 phase_fn = partial(phase_map[phase_name], **phase_args)
 
-            self.lr_phase.append((lr_from, lr_to, phase_iter, phase_fn))
+            lr_phase.append((lr_from, lr_to, phase_iter, phase_fn))
 
-        self.phase = 0
-        self.phase_step = 0
-
-        self.latest_lr = None
-        self.loss_log = []
+        return lr_phase
 
     def state_dict(self):
         return {
             "lr_phase": self.lr_phase,
-            "phase": self.phase,
+            "phase_param": self.phase_param,
             "phase_step": self.phase_step,
             "latest_lr": self.latest_lr,
             "loss_log": self.loss_log,
         }
 
     def load_state_dict(self, state_dict):
-        self.lr_phase = state_dict["lr_phase"]
+        self.lr_phase = self.make_phase(state_dict["phase_param"])
         self.phase = state_dict["phase"]
         self.phase_step = state_dict["phase_step"]
         self.latest_lr = state_dict["latest_lr"]
