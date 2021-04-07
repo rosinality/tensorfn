@@ -3,7 +3,7 @@ from typing import Tuple, Union
 from pydantic import BaseModel, validator, StrictStr, StrictFloat, StrictBool
 from torch import optim
 
-from tensorfn.config import Config
+from tensorfn.config import Config, BaseConfig
 from tensorfn import optim as tensor_optim
 
 
@@ -99,8 +99,34 @@ class LAMB(Config):
         )
 
 
+class RMSpropTF(BaseConfig):
+    __type__ = "rmsprop_tf"
+
+    lr: StrictFloat = 0.01
+    alpha: StrictFloat = 0.9
+    eps: StrictFloat = 1e-10
+    weight_decay: StrictFloat = 0.0
+    momentum: StrictFloat = 0.0
+    centered: StrictBool = False
+    decoupled_decay: StrictBool = False
+    lr_in_momentum: StrictBool = True
+
+    def make(self, params):
+        return tensor_optim.RMSpropTF(
+            params,
+            self.lr,
+            self.alpha,
+            self.eps,
+            self.weight_decay,
+            self.momentum,
+            self.centered,
+            self.decoupled_decay,
+            self.lr_in_momentum,
+        )
+
+
 def make_optimizer(config, params):
     return config.make(params)
 
 
-Optimizer = Union[SGD, Adam, AdamW, LAMB]
+Optimizer = Union[SGD, Adam, AdamW, LAMB, RMSpropTF]
