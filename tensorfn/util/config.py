@@ -28,6 +28,14 @@ def preset_argparser():
     parser.add_argument("--conf", type=str, required=True)
     parser.add_argument("--ckpt", type=str)
 
+    parser = add_distributed_args(parser)
+
+    parser.add_argument("opts", default=None, nargs=argparse.REMAINDER)
+
+    return parser
+
+
+def add_distributed_args(parser):
     parser.add_argument("--n_gpu", type=int, default=1)
     parser.add_argument("--n_machine", type=int, default=1)
     parser.add_argument("--machine_rank", type=int, default=0)
@@ -38,8 +46,6 @@ def preset_argparser():
         + hash(os.getuid() if sys.platform != "win32" else 1) % 2 ** 14
     )
     parser.add_argument("--dist_url", default=f"tcp://127.0.0.1:{port}")
-
-    parser.add_argument("opts", default=None, nargs=argparse.REMAINDER)
 
     return parser
 

@@ -11,6 +11,20 @@ class Config(BaseModel):
         extra = "forbid"
 
 
+class BaseConfig(BaseModel):
+    class Config:
+        extra = "forbid"
+
+    type: StrictStr
+
+    @validator("type")
+    def check_type(cls, v):
+        if v != cls.__type__:
+            raise ValueError("Options does not match for " + cls.__type__)
+
+        return v
+
+
 CONFIG_REGISTRY = {}
 
 
@@ -42,6 +56,10 @@ def _check_type(type_name):
         return v
 
     return check_type
+
+
+class StrictConfig:
+    extra = "forbid"
 
 
 def make_model_from_signature(name, init_fn, signature, exclude, type_name=None):
@@ -84,7 +102,13 @@ def make_model_from_signature(name, init_fn, signature, exclude, type_name=None)
     if type_name is not None:
         validators["check_type"] = _check_type(type_name)
 
-    model = create_model(name, __validators__=validators, __module__=__name__, **params)
+    model = create_model(
+        name,
+        __config__=StrictConfig,
+        __validators__=validators,
+        __module__=__name__,
+        **params,
+    )
 
     setattr(sys.modules[__name__], name, model)
 
