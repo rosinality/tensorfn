@@ -9,3 +9,10 @@ from tensorfn.util import (
     setup_logger,
     create_small_table,
 )
+from tensorfn.checker import Checker
+
+try:
+    import nsml
+
+except:
+    from tensorfn import nsml_wrapper as nsml

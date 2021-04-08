@@ -3,7 +3,7 @@ from typing import Tuple, Union
 from pydantic import BaseModel, validator, StrictStr, StrictFloat, StrictBool
 from torch import optim
 
-from tensorfn.config import Config, BaseConfig
+from tensorfn.config import Config, TypedConfig, override
 from tensorfn import optim as tensor_optim
 
 
@@ -23,15 +23,17 @@ class SGD(Config):
 
         return v
 
-    def make(self, params):
-        return optim.SGD(
-            params,
-            self.lr,
-            self.momentum,
-            self.dampening,
-            self.weight_decay,
-            self.nesterov,
+    def make(self, params, **kwargs):
+        argument = override(
+            kwargs,
+            lr=self.lr,
+            momentum=self.momentum,
+            dampening=self.dampening,
+            weight_decay=self.weight_decay,
+            nesterov=self.nesterov,
         )
+
+        return optim.SGD(params, **argument)
 
 
 class Adam(Config):
@@ -50,10 +52,17 @@ class Adam(Config):
 
         return v
 
-    def make(self, params):
-        return optim.Adam(
-            params, self.lr, self.betas, self.eps, self.weight_decay, self.amsgrad
+    def make(self, params, **kwargs):
+        argument = override(
+            kwargs,
+            lr=self.lr,
+            betas=self.betas,
+            eps=self.eps,
+            weight_decay=self.weight_decay,
+            amsgrad=self.amsgrad,
         )
+
+        return optim.Adam(params, **argument)
 
 
 class AdamW(Config):
@@ -72,10 +81,17 @@ class AdamW(Config):
 
         return v
 
-    def make(self, params):
-        return optim.AdamW(
-            params, self.lr, self.betas, self.eps, self.weight_decay, self.amsgrad
+    def make(self, params, **kwargs):
+        argument = override(
+            kwargs,
+            lr=self.lr,
+            betas=self.betas,
+            eps=self.eps,
+            weight_decay=self.weight_decay,
+            amsgrad=self.amsgrad,
         )
+
+        return optim.AdamW(params, **argument)
 
 
 class LAMB(Config):
@@ -93,13 +109,19 @@ class LAMB(Config):
 
         return v
 
-    def make(self, params):
-        return tensor_optim.LAMB(
-            params, self.lr, self.betas, self.eps, self.weight_decay
+    def make(self, params, **kwargs):
+        argument = override(
+            kwargs,
+            lr=self.lr,
+            betas=self.betas,
+            eps=self.eps,
+            weight_decay=self.weight_decay,
         )
 
+        return tensor_optim.LAMB(params, **argument)
 
-class RMSpropTF(BaseConfig):
+
+class RMSpropTF(TypedConfig):
     __type__ = "rmsprop_tf"
 
     lr: StrictFloat = 0.01
@@ -111,18 +133,20 @@ class RMSpropTF(BaseConfig):
     decoupled_decay: StrictBool = False
     lr_in_momentum: StrictBool = True
 
-    def make(self, params):
-        return tensor_optim.RMSpropTF(
-            params,
-            self.lr,
-            self.alpha,
-            self.eps,
-            self.weight_decay,
-            self.momentum,
-            self.centered,
-            self.decoupled_decay,
-            self.lr_in_momentum,
+    def make(self, params, **kwargs):
+        argument = override(
+            kwargs,
+            lr=self.lr,
+            alpha=self.alpha,
+            eps=self.eps,
+            weight_decay=self.weight_decay,
+            momentum=self.momentum,
+            centered=self.centered,
+            decoupled_decay=self.decoupled_decay,
+            lr_in_momentum=self.lr_in_momentum,
         )
+
+        return tensor_optim.RMSpropTF(params, **argument)
 
 
 def make_optimizer(config, params):

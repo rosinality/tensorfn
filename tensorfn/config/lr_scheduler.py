@@ -1,8 +1,8 @@
-from typing import Tuple, Union, List
+from typing import Tuple, Union, Sequence
 
 from pydantic import BaseModel, validator, StrictStr, StrictFloat, StrictInt, StrictBool
 
-from tensorfn.config import Config
+from tensorfn.config import Config, TypedConfig, override
 from tensorfn.optim import lr_scheduler
 
 
@@ -24,12 +24,12 @@ class Cycle(Config):
     type: StrictStr
 
     lr: StrictFloat
-    n_iter: StrictInt
+    n_iter: StrictInt = 0
     initial_multiplier: StrictFloat = 4e-2
     final_multiplier: StrictFloat = 1e-5
-    warmup: StrictInt = 500
+    warmup: StrictInt = 0
     plateau: StrictInt = 0
-    decay: List[StrictStr]
+    decay: Sequence[StrictStr] = ("linear", "cos")
 
     @validator("type")
     def check_type(cls, v):
@@ -38,24 +38,26 @@ class Cycle(Config):
 
         return v
 
-    def make(self, optimizer):
-        return lr_scheduler.cycle_scheduler(
-            optimizer,
-            self.lr,
-            self.n_iter,
-            self.initial_multiplier,
-            self.final_multiplier,
-            self.warmup,
-            self.plateau,
-            self.decay,
+    def make(self, optimizer, **kwargs):
+        argument = override(
+            kwargs,
+            lr=self.lr,
+            n_iter=self.n_iter,
+            initial_multiplier=self.initial_multiplier,
+            final_multiplier=self.final_multiplier,
+            warmup=self.warmup,
+            plateau=self.plateau,
+            decay=self.decay,
         )
+
+        return lr_scheduler.cycle_scheduler(optimizer, **arguemnt)
 
 
 class Step(Config):
     type: StrictStr
 
     lr: StrictFloat
-    milestones: List[StrictInt]
+    milestones: Sequence[StrictInt]
     gamma: StrictFloat = 0.1
     warmup: StrictInt = 0
     warmup_multiplier = 4e-2
@@ -67,14 +69,65 @@ class Step(Config):
 
         return v
 
-    def make(self, optimizer):
-        return lr_scheduler.step_scheduler(
-            optimizer,
-            self.lr,
-            self.milestones,
-            self.gamma,
-            self.warmup,
-            self.warmup_multiplier,
+    def make(self, optimizer, **kwargs):
+        argument = override(
+            kwargs,
+            lr=self.lr,
+            milestones=self.milestones,
+            gamma=self.gamma,
+            warmup=self.warmup,
+            warmup_multiplier=self.warmup_multiplier,
+        )
+
+        return lr_scheduler.step_scheduler(optimizer, **argument)
+
+
+class Exp(TypedConfig):
+    __type__ = "exp"
+
+    lr: StrictFloat
+    step: StrictInt
+    max_iter: StrictInt = 0
+    gamma: StrictFloat = 0.97
+    warmup: StrictInt = 0
+    warmup_multiplier: StrictFloat = 4e-2
+
+    def make(self, optimizer, **kwargs):
+        argument = override(
+            kwargs,
+            lr=self.lr,
+            step=self.step,
+            max_iter=self.max_iter,
+            gamma=self.gamma,
+            warmup=self.warmup,
+            warmup_multiplier=self.warmup_multiplier,
+        )
+
+        return lr_scheduler.exp_scheduler(optimizer, **argument)
+
+
+class ExpEpoch(TypedConfig):
+    __type__ = "exp_epoch"
+
+    lr: StrictFloat
+    epoch: StrictFloat
+    max_iter: StrictInt = 0
+    gamma: StrictFloat = 0.97
+    warmup: StrictInt = 0
+    warmup_multiplier: StrictFloat = 4e-2
+
+    def make(self, optimizer, epoch_step, **kwargs):
+        argument = override(
+            kwargs,
+            lr=self.lr,
+            max_iter=self.max_iter,
+            gamma=self.gamma,
+            warmup=self.warmup,
+            warmup_multiplier=self.warmup_multiplier,
+        )
+
+        return lr_scheduler.exp_scheduler(
+            optimizer, step=int(epoch_step * self.epoch), **argument
         )
 
 
@@ -93,10 +146,16 @@ class LRFind(Config):
 
         return v
 
-    def make(self, optimizer):
-        return lr_scheduler.lr_finder(
-            optimizer, self.lr_min, self.lr_max, self.n_iter, self.linear
+    def make(self, optimizer, **kwargs):
+        argument = override(
+            kwargs,
+            lr_min=self.lr_min,
+            lr_max=self.lr_max,
+            n_iter=self.n_iter,
+            linear=self.linear,
         )
 
+        return lr_scheduler.lr_finder(optimizer, **argument)
 
-Scheduler = Union[Constant, Cycle, Step, LRFind]
+
+Scheduler = Union[Constant, Cycle, Step, ExpEpoch, Exp, LRFind]

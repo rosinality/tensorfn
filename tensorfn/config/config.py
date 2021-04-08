@@ -2,8 +2,16 @@ import sys
 import inspect
 import functools
 import typing
+from typing import Optional
 
-from pydantic import BaseModel, create_model
+from pydantic import (
+    BaseModel,
+    create_model,
+    validator,
+    StrictStr,
+    StrictInt,
+    StrictBool,
+)
 
 
 class Config(BaseModel):
@@ -11,7 +19,19 @@ class Config(BaseModel):
         extra = "forbid"
 
 
-class BaseConfig(BaseModel):
+class MainConfig(BaseModel):
+    class Config:
+        extra = "forbid"
+
+    n_gpu: Optional[StrictInt]
+    n_machine: Optional[StrictInt]
+    machine_rank: Optional[StrictInt]
+    dist_url: Optional[StrictStr]
+    distributed: Optional[StrictBool]
+    ckpt: Optional[StrictStr]
+
+
+class TypedConfig(BaseModel):
     class Config:
         extra = "forbid"
 
@@ -48,7 +68,7 @@ def config_model(name=None, exclude=(), use_type=False):
 
 
 def _check_type(type_name):
-    @validator("type")
+    @validator("type", allow_reuse=True)
     def check_type(cls, v):
         if v != type_name:
             raise ValueError(f"Type does not match for {type_name}")
@@ -129,3 +149,12 @@ def get_model(name):
     CONFIG_MODEL_REGISTRY[name] = model
 
     return model
+
+
+def override(overrides, **defaults):
+    result = {}
+
+    for k, v in defaults.items():
+        result[k] = overrides.get(k, v)
+
+    return result

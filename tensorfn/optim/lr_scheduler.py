@@ -117,8 +117,8 @@ class PhaseScheduler:
 
         # lr = self.lr_phase[self.phase].step()
         lr_from, lr_to, phase_iter, phase_fn = self.lr_phase[self.phase]
-        self.phase_step += 1
         lr = phase_fn(lr_from, lr_to, self.phase_step / phase_iter)
+        self.phase_step += 1
 
         for group in self.optimizer.param_groups:
             group["lr"] = lr
@@ -190,6 +190,14 @@ def step_scheduler(
         steps = current
 
     return PhaseScheduler(optimizer, phases)
+
+
+def exp_scheduler(
+    optimizer, lr, step, max_iter, gamma=0.97, warmup=0, warmup_multiplier=4e-2
+):
+    milestones = [int(step) * i + warmup - 1 for i in range(1, max_iter)]
+
+    return step_scheduler(optimizer, lr, milestones, gamma, warmup, warmup_multiplier)
 
 
 def lr_finder(optimizer, lr_min, lr_max, n_iter, linear=False):
