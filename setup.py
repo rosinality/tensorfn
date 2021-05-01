@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="tensorfn",
-    version="0.1.10",
+    version="0.1.15",
     description="Non-opionated utility library for PyTorch",
     url="https://github.com/rosinality/tensorfn",
     author="Kim Seonghyeon",
@@ -10,10 +10,11 @@ setup(
     license="MIT",
     install_requires=[
         "torch>=1.1",
-        "pydantic>=1.5",
+        "pydantic>=1.8",
         "pyhocon>=0.3.54",
         "termcolor",
         "tabulate",
+        "boto3",
     ],
     packages=find_packages(),
 )

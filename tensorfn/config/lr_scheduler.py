@@ -50,7 +50,7 @@ class Cycle(Config):
             decay=self.decay,
         )
 
-        return lr_scheduler.cycle_scheduler(optimizer, **arguemnt)
+        return lr_scheduler.cycle_scheduler(optimizer, **argument)
 
 
 class Step(Config):

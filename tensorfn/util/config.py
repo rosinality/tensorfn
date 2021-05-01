@@ -59,7 +59,7 @@ def load_config(config_model, config, overrides=(), show=True):
     return conf
 
 
-def load_arg_config(config_model, show=True):
+def load_arg_config(config_model, show=False):
     parser = preset_argparser()
     args = parser.parse_args()
 

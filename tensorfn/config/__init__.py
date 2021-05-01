@@ -2,6 +2,7 @@ from tensorfn.config.config import (
     Config,
     TypedConfig,
     MainConfig,
+    get_models,
     get_model,
     config_model,
     override,

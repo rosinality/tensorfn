@@ -2,7 +2,7 @@ import sys
 import inspect
 import functools
 import typing
-from typing import Optional
+from typing import Optional, Union
 
 from pydantic import (
     BaseModel,
@@ -48,7 +48,7 @@ class TypedConfig(BaseModel):
 CONFIG_REGISTRY = {}
 
 
-def config_model(name=None, exclude=(), use_type=False):
+def config_model(name=None, namespace=None, exclude=(), use_type=False):
     def _decorate(fn):
         if name is None:
             fn_name = fn.__name__
@@ -56,11 +56,19 @@ def config_model(name=None, exclude=(), use_type=False):
         else:
             fn_name = name
 
-        if fn_name in CONFIG_REGISTRY:
-            prev_fn = CONFIG_REGISTRY[fn_name][1]
+        if namespace not in CONFIG_REGISTRY:
+            CONFIG_REGISTRY[namespace] = {}
+
+        if fn_name in CONFIG_REGISTRY[namespace]:
+            prev_fn = CONFIG_REGISTRY[namespace][fn_name][1]
             raise KeyError(f"Conflict occured in config registry: {prev_fn} vs {fn}")
 
-        CONFIG_REGISTRY[fn_name] = (use_type, fn, inspect.signature(fn), exclude)
+        CONFIG_REGISTRY[namespace][fn_name] = (
+            use_type,
+            fn,
+            inspect.signature(fn),
+            exclude,
+        )
 
         return fn
 
@@ -138,15 +146,32 @@ def make_model_from_signature(name, init_fn, signature, exclude, type_name=None)
 CONFIG_MODEL_REGISTRY = {}
 
 
-def get_model(name):
-    if name in CONFIG_MODEL_REGISTRY:
-        return CONFIG_MODEL_REGISTRY[name]
+def get_models(namespace):
+    names = CONFIG_REGISTRY[namespace].keys()
+    for i, name in enumerate(names):
+        model = get_model(name, namespace)
 
-    use_type, init_fn, signature, exclude = CONFIG_REGISTRY[name]
+        if i == 0:
+            models = Union[model]
+
+        else:
+            models = Union[models, model]
+
+    return models
+
+
+def get_model(name, namespace=None):
+    if namespace not in CONFIG_MODEL_REGISTRY:
+        CONFIG_MODEL_REGISTRY[namespace] = {}
+
+    if name in CONFIG_MODEL_REGISTRY[namespace]:
+        return CONFIG_MODEL_REGISTRY[namespace][name]
+
+    use_type, init_fn, signature, exclude = CONFIG_REGISTRY[namespace][name]
     model = make_model_from_signature(
         name, init_fn, signature, exclude, name if use_type else None
     )
-    CONFIG_MODEL_REGISTRY[name] = model
+    CONFIG_MODEL_REGISTRY[namespace][name] = model
 
     return model
 

@@ -4,9 +4,18 @@
 import functools
 import logging
 import sys
+import pprint
 
 from termcolor import colored
 from tabulate import tabulate
+
+try:
+    from rich.logging import RichHandler
+
+except ImportError:
+    RichHandler = None
+
+from tensorfn import distributed as dist
 
 
 class ColorfulFormatter(logging.Formatter):
@@ -29,8 +38,20 @@ class ColorfulFormatter(logging.Formatter):
         return prefix + " " + log
 
 
+def wrap_log_record_factory(factory):
+    def wrapper(
+        name, level, fn, lno, msg, args, exc_info, func=None, sinfo=None, **kwargs
+    ):
+        if not isinstance(msg, str):
+            msg = pprint.pformat(msg)
+
+        return factory(name, level, fn, lno, msg, args, exc_info, func, sinfo, **kwargs)
+
+    return wrapper
+
+
 @functools.lru_cache()  # so that calling setup_logger multiple times won't add many handlers
-def setup_logger(distributed_rank=0, *, color=True, name="main", abbrev_name=None):
+def get_logger(distributed_rank=None, *, mode="rich", name="main", abbrev_name=None):
     """
     Initialize the detectron2 logger and set its verbosity level to "DEBUG".
     Args:
@@ -45,32 +66,52 @@ def setup_logger(distributed_rank=0, *, color=True, name="main", abbrev_name=Non
     Returns:
         logging.Logger: a logger
     """
+    if distributed_rank is None:
+        distributed_rank = dist.get_rank()
+
+    logging.setLogRecordFactory(wrap_log_record_factory(logging.getLogRecordFactory()))
 
     logger = logging.getLogger(name)
+    
+    if logger.handlers:
+        return logger
+    
     logger.setLevel(logging.DEBUG)
     logger.propagate = False
 
     if abbrev_name is None:
         abbrev_name = name
 
-    plain_formatter = logging.Formatter(
-        "[%(asctime)s] %(name)s %(levelname)s: %(message)s", datefmt="%m/%d %H:%M:%S"
-    )
+    if mode == "rich" and RichHandler is None:
+        mode = "color"
 
     if distributed_rank == 0:
-        ch = logging.StreamHandler(stream=sys.stdout)
-        ch.setLevel(logging.DEBUG)
-        if color:
+        if mode == "color":
+            ch = logging.StreamHandler(stream=sys.stdout)
+            ch.setLevel(logging.DEBUG)
             formatter = ColorfulFormatter(
                 colored("[%(asctime)s %(name)s]: ", "green") + "%(message)s",
                 datefmt="%m/%d %H:%M:%S",
                 root_name=name,
                 abbrev_name=str(abbrev_name),
             )
-        else:
-            formatter = plain_formatter
-        ch.setFormatter(formatter)
-        logger.addHandler(ch)
+            ch.setFormatter(formatter)
+            logger.addHandler(ch)
+
+        elif mode == "rich":
+            logger.addHandler(
+                RichHandler(level=logging.DEBUG, log_time_format="%m/%d %H:%M:%S")
+            )
+
+        elif mode == "plain":
+            ch = logging.StreamHandler(stream=sys.stdout)
+            ch.setLevel(logging.DEBUG)
+            formatter = logging.Formatter(
+                "[%(asctime)s] %(name)s %(levelname)s: %(message)s",
+                datefmt="%m/%d %H:%M:%S",
+            )
+            ch.setFormatter(formatter)
+            logger.addHandler(ch)
 
     return logger
 

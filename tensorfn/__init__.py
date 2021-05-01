@@ -1,3 +1,9 @@
+try:
+    import nsml
+
+except:
+    from tensorfn import nsml_wrapper as nsml
+
 from tensorfn.util import (
     read_config,
     preset_argparser,
@@ -6,13 +12,8 @@ from tensorfn.util import (
     add_distributed_args,
     load_wandb,
     ensure_tuple,
-    setup_logger,
+    get_logger,
     create_small_table,
 )
 from tensorfn.checker import Checker
-
-try:
-    import nsml
-
-except:
-    from tensorfn import nsml_wrapper as nsml
+from tensorfn.trainer import Trainer
