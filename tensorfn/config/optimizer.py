@@ -1,6 +1,6 @@
 from typing import Tuple, Union
 
-from pydantic import BaseModel, validator, StrictStr, StrictFloat, StrictBool
+from pydantic import BaseModel, validator, StrictStr, StrictBool
 from torch import optim
 
 from tensorfn.config import Config, TypedConfig, override
@@ -10,10 +10,10 @@ from tensorfn import optim as tensor_optim
 class SGD(Config):
     type: StrictStr
 
-    lr: StrictFloat
-    momentum: StrictFloat = 0.0
-    dampening: StrictFloat = 0.0
-    weight_decay: StrictFloat = 0.0
+    lr: float
+    momentum: float = 0.0
+    dampening: float = 0.0
+    weight_decay: float = 0.0
     nesterov: StrictBool = False
 
     @validator("type")
@@ -39,10 +39,10 @@ class SGD(Config):
 class Adam(Config):
     type: StrictStr
 
-    lr: StrictFloat = 0.001
-    betas: Tuple[StrictFloat, StrictFloat] = (0.9, 0.999)
-    eps: StrictFloat = 1e-8
-    weight_decay: StrictFloat = 0
+    lr: float = 0.001
+    betas: Tuple[float, float] = (0.9, 0.999)
+    eps: float = 1e-8
+    weight_decay: float = 0
     amsgrad: StrictBool = False
 
     @validator("type")
@@ -68,10 +68,10 @@ class Adam(Config):
 class AdamW(Config):
     type: StrictStr
 
-    lr: StrictFloat = 0.001
-    betas: Tuple[StrictFloat, StrictFloat] = (0.9, 0.999)
-    eps: StrictFloat = 1e-8
-    weight_decay: StrictFloat = 0
+    lr: float = 0.001
+    betas: Tuple[float, float] = (0.9, 0.999)
+    eps: float = 1e-8
+    weight_decay: float = 0
     amsgrad: StrictBool = False
 
     @validator("type")
@@ -97,10 +97,10 @@ class AdamW(Config):
 class LAMB(Config):
     type: StrictStr
 
-    lr: StrictFloat = 0.001
-    betas: Tuple[StrictFloat, StrictFloat] = (0.9, 0.999)
-    eps: StrictFloat = 1e-6
-    weight_decay: StrictFloat = 0
+    lr: float = 0.001
+    betas: Tuple[float, float] = (0.9, 0.999)
+    eps: float = 1e-6
+    weight_decay: float = 0
 
     @validator("type")
     def check_type(cls, v):
@@ -124,11 +124,11 @@ class LAMB(Config):
 class RMSpropTF(TypedConfig):
     __type__ = "rmsprop_tf"
 
-    lr: StrictFloat = 0.01
-    alpha: StrictFloat = 0.9
-    eps: StrictFloat = 1e-10
-    weight_decay: StrictFloat = 0.0
-    momentum: StrictFloat = 0.0
+    lr: float = 0.01
+    alpha: float = 0.9
+    eps: float = 1e-10
+    weight_decay: float = 0.0
+    momentum: float = 0.0
     centered: StrictBool = False
     decoupled_decay: StrictBool = False
     lr_in_momentum: StrictBool = True

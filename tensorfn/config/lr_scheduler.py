@@ -1,6 +1,6 @@
 from typing import Tuple, Union, Sequence
 
-from pydantic import BaseModel, validator, StrictStr, StrictFloat, StrictInt, StrictBool
+from pydantic import BaseModel, validator, StrictStr, StrictInt, StrictBool
 
 from tensorfn.config import Config, TypedConfig, override
 from tensorfn.optim import lr_scheduler
@@ -23,10 +23,10 @@ class Constant(Config):
 class Cycle(Config):
     type: StrictStr
 
-    lr: StrictFloat
+    lr: float
     n_iter: StrictInt = 0
-    initial_multiplier: StrictFloat = 4e-2
-    final_multiplier: StrictFloat = 1e-5
+    initial_multiplier: float = 4e-2
+    final_multiplier: float = 1e-5
     warmup: StrictInt = 0
     plateau: StrictInt = 0
     decay: Sequence[StrictStr] = ("linear", "cos")
@@ -56,9 +56,9 @@ class Cycle(Config):
 class Step(Config):
     type: StrictStr
 
-    lr: StrictFloat
+    lr: float
     milestones: Sequence[StrictInt]
-    gamma: StrictFloat = 0.1
+    gamma: float = 0.1
     warmup: StrictInt = 0
     warmup_multiplier = 4e-2
 
@@ -85,12 +85,12 @@ class Step(Config):
 class Exp(TypedConfig):
     __type__ = "exp"
 
-    lr: StrictFloat
+    lr: float
     step: StrictInt
     max_iter: StrictInt = 0
-    gamma: StrictFloat = 0.97
+    gamma: float = 0.97
     warmup: StrictInt = 0
-    warmup_multiplier: StrictFloat = 4e-2
+    warmup_multiplier: float = 4e-2
 
     def make(self, optimizer, **kwargs):
         argument = override(
@@ -109,12 +109,12 @@ class Exp(TypedConfig):
 class ExpEpoch(TypedConfig):
     __type__ = "exp_epoch"
 
-    lr: StrictFloat
-    epoch: StrictFloat
+    lr: float
+    epoch: float
     max_iter: StrictInt = 0
-    gamma: StrictFloat = 0.97
+    gamma: float = 0.97
     warmup: StrictInt = 0
-    warmup_multiplier: StrictFloat = 4e-2
+    warmup_multiplier: float = 4e-2
 
     def make(self, optimizer, epoch_step, **kwargs):
         argument = override(
@@ -134,8 +134,8 @@ class ExpEpoch(TypedConfig):
 class LRFind(Config):
     type: StrictStr
 
-    lr_min: StrictFloat
-    lr_max: StrictFloat
+    lr_min: float
+    lr_max: float
     n_iter: StrictInt
     linear: StrictBool = False
 
