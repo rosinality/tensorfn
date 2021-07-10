@@ -6,6 +6,7 @@ from tensorfn.config.config import (
     get_model,
     config_model,
     override,
+    Instance,
 )
 from tensorfn.config.optimizer import Optimizer, make_optimizer
 from tensorfn.config.lr_scheduler import Scheduler

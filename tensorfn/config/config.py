@@ -1,4 +1,5 @@
 import sys
+import collections
 import inspect
 import functools
 import typing
@@ -11,6 +12,7 @@ from pydantic import (
     StrictStr,
     StrictInt,
     StrictBool,
+    ValidationError,
 )
 
 
@@ -90,7 +92,9 @@ class StrictConfig:
     extra = "forbid"
 
 
-def make_model_from_signature(name, init_fn, signature, exclude, type_name=None):
+def make_model_from_signature(
+    name, init_fn, signature, exclude, type_name=None, strict=True
+):
     params = {}
 
     if type_name is not None:
@@ -122,6 +126,9 @@ def make_model_from_signature(name, init_fn, signature, exclude, type_name=None)
     def _init_fn(self, *args, **kwargs):
         params = self.params()
         params.update(kwargs)
+        pos_replace = list(signature.parameters.keys())[: len(args)]
+        for pos in pos_replace:
+            params.pop(pos)
 
         return init_fn(*args, **params)
 
@@ -130,9 +137,15 @@ def make_model_from_signature(name, init_fn, signature, exclude, type_name=None)
     if type_name is not None:
         validators["check_type"] = _check_type(type_name)
 
+    if strict:
+        config = StrictConfig
+
+    else:
+        config = None
+
     model = create_model(
         name,
-        __config__=StrictConfig,
+        __config__=config,
         __validators__=validators,
         __module__=__name__,
         **params,
@@ -183,3 +196,155 @@ def override(overrides, **defaults):
         result[k] = overrides.get(k, v)
 
     return result
+
+
+def resolve_module(path):
+    from importlib import import_module
+
+    sub_path = path.split(".")
+    module = None
+
+    for i in reversed(range(len(sub_path))):
+        try:
+            mod = ".".join(sub_path[:i])
+            module = import_module(mod)
+
+        except (ModuleNotFoundError, ImportError):
+            continue
+
+        if module is not None:
+            break
+
+    obj = module
+
+    for sub in sub_path[i:]:
+        mod = f"{mod}.{sub}"
+
+        if not hasattr(obj, sub):
+            try:
+                import_module(mod)
+
+            except (ModuleNotFoundError, ImportError) as e:
+                raise ImportError(
+                    f"Encountered error: '{e}' when loading module '{path}'"
+                ) from e
+
+        obj = getattr(obj, sub)
+
+    return obj
+
+
+def instance_traverse(node, *args, recursive=True, instantiate=False):
+    if isinstance(node, collections.abc.Sequence) and not isinstance(node, str):
+        seq = [
+            instance_traverse(i, recursive=recursive, instantiate=instantiate)
+            for i in node
+        ]
+
+        return seq
+
+    if isinstance(node, collections.abc.Mapping):
+        target_key = "__target"
+        validate_key = "__validate"
+        partial_key = "__partial"
+
+        if target_key in node:
+            target = node.get(target_key)
+            do_validate = node.get(validate_key, True)
+            partial = node.get(partial_key, False)
+
+            obj = resolve_module(target)
+            signature = inspect.signature(obj)
+
+            if instantiate:
+                pos_replace = list(signature.parameters.keys())[: len(args)]
+
+                kwargs = {}
+                for k, v in node.items():
+                    if k in (target_key, validate_key, partial_key):
+                        continue
+
+                    if k in pos_replace:
+                        continue
+
+                    kwargs[k] = instance_traverse(
+                        v, recursive=recursive, instantiate=instantiate
+                    )
+
+                if partial:
+                    return functools.partial(obj, *args, **kwargs)
+
+                else:
+                    return obj(*args, **kwargs)
+
+            else:
+                rest = {}
+                for k, v in node.items():
+                    if k in (target_key, validate_key, partial_key):
+                        continue
+
+                    rest[k] = instance_traverse(
+                        v, recursive=recursive, instantiate=instantiate
+                    )
+
+                if do_validate:
+                    name = "instance." + target
+
+                    if partial:
+                        rest_key = list(rest.keys())
+                        exclude = []
+
+                        for k in signature.parameters.keys():
+                            if k not in rest_key:
+                                exclude.append(k)
+
+                        model = make_model_from_signature(
+                            name, obj, signature, exclude, strict=False
+                        )
+
+                    else:
+                        model = make_model_from_signature(name, obj, signature, ())
+
+                    try:
+                        model.validate(rest)
+
+                    except ValidationError as e:
+                        raise ValueError(
+                            f"Validation for {target} with {v} is failed:\n{e}"
+                        ) from e
+
+                return {
+                    target_key: target,
+                    validate_key: do_validate,
+                    partial_key: partial,
+                    **rest,
+                }
+
+        else:
+            mapping = {}
+
+            for k, v in node.items():
+                mapping[k] = instance_traverse(
+                    v, recursive=recursive, instantiate=instantiate
+                )
+
+            return mapping
+
+    else:
+        return node
+
+
+class Instance(dict):
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
+
+    @classmethod
+    def validate(cls, v):
+        v_new = instance_traverse(v)
+        instance = cls(v_new)
+
+        return instance
+
+    def make(self, *args):
+        return instance_traverse(self, *args, instantiate=True)

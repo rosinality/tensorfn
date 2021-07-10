@@ -5,14 +5,26 @@ from copy import deepcopy
 import os
 from pprint import pprint
 import sys
+import json
 
 from pyhocon import ConfigFactory, ConfigTree
+
+try:
+    import _jsonnet
+except ImportError:
+    _jsonnet = None
 
 from tensorfn.distributed import is_primary
 
 
 def read_config(config_file, overrides=(), strict=False):
-    conf = ConfigFactory.parse_file(config_file)
+    if config_file.endswith(".jsonnet"):
+        json_str = _jsonnet.evaluate_file(config_file)
+        json_obj = json.loads(json_str)
+        conf = ConfigFactory.from_dict(json_obj)
+
+    else:
+        conf = ConfigFactory.parse_file(config_file)
 
     if len(overrides) > 0:
         for override in overrides:
