@@ -94,7 +94,7 @@ class PhaseScheduler:
 
     def state_dict(self):
         return {
-            "lr_phase": self.lr_phase,
+            "phase": self.phase,
             "phase_param": self.phase_param,
             "phase_step": self.phase_step,
             "latest_lr": self.latest_lr,
