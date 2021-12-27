@@ -1,4 +1,4 @@
-from .carafe import CARAFE, carafe
+# from .carafe import CARAFE, carafe
 from .dropblock import DropBlock2d
 from .loss import LabelSmoothingLoss, MixLoss
 from .interpolate_spline import (
@@ -7,4 +7,4 @@ from .interpolate_spline import (
     interpolate_spline,
     InterpolateSpline,
 )
-
+from .model_util import repeat
