@@ -13,6 +13,7 @@ from pydantic import (
     StrictInt,
     StrictBool,
     ValidationError,
+    ArbitraryTypeError,
 )
 
 
@@ -90,6 +91,7 @@ def _check_type(type_name):
 
 class StrictConfig:
     extra = "forbid"
+    arbitrary_types_allowed = True
 
 
 def make_model_from_signature(
@@ -102,6 +104,11 @@ def make_model_from_signature(
 
     for k, v in signature.parameters.items():
         if k in exclude:
+            continue
+
+        if v.kind == v.VAR_POSITIONAL or v.kind == v.VAR_KEYWORD:
+            strict = False
+
             continue
 
         annotation = v.annotation
@@ -245,13 +252,39 @@ def instance_traverse(node, *args, recursive=True, instantiate=False):
 
     if isinstance(node, collections.abc.Mapping):
         target_key = "__target"
+        init_key = "__init"
+        fn_key = "__fn"
         validate_key = "__validate"
         partial_key = "__partial"
 
-        if target_key in node:
-            target = node.get(target_key)
-            do_validate = node.get(validate_key, True)
+        exclude_keys = {
+            target_key,
+            init_key,
+            fn_key,
+            validate_key,
+            partial_key,
+        }
+
+        if target_key in node or init_key in node or fn_key in node:
+            return_fn = False
             partial = node.get(partial_key, False)
+            do_validate = node.get(validate_key, True)
+
+            if init_key in node:
+                target = node.get(init_key)
+
+            elif fn_key in node:
+                target = node.get(fn_key)
+
+                if len([k for k in node if k not in exclude_keys]) > 0:
+                    partial = True
+
+                else:
+                    return_fn = True
+                    do_validate = False
+
+            else:
+                target = node.get(target_key)
 
             obj = resolve_module(target)
             signature = inspect.signature(obj)
@@ -261,7 +294,7 @@ def instance_traverse(node, *args, recursive=True, instantiate=False):
 
                 kwargs = {}
                 for k, v in node.items():
-                    if k in (target_key, validate_key, partial_key):
+                    if k in exclude_keys:
                         continue
 
                     if k in pos_replace:
@@ -271,7 +304,10 @@ def instance_traverse(node, *args, recursive=True, instantiate=False):
                         v, recursive=recursive, instantiate=instantiate
                     )
 
-                if partial:
+                if return_fn:
+                    return obj
+
+                elif partial:
                     return functools.partial(obj, *args, **kwargs)
 
                 else:
@@ -280,7 +316,7 @@ def instance_traverse(node, *args, recursive=True, instantiate=False):
             else:
                 rest = {}
                 for k, v in node.items():
-                    if k in (target_key, validate_key, partial_key):
+                    if k in exclude_keys:
                         continue
 
                     rest[k] = instance_traverse(
@@ -309,16 +345,37 @@ def instance_traverse(node, *args, recursive=True, instantiate=False):
                         model.validate(rest)
 
                     except ValidationError as e:
-                        raise ValueError(
-                            f"Validation for {target} with {v} is failed:\n{e}"
-                        ) from e
+                        arbitrary_flag = True
 
-                return {
-                    target_key: target,
+                        for error in e.errors():
+                            if error["type"] != "type_error.arbitrary_type":
+                                arbitrary_flag = False
+
+                                break
+
+                        if not arbitrary_flag:
+                            raise ValueError(
+                                f"Validation for {target} with {v} is failed:\n{e}"
+                            ) from e
+
+                """return_dict = {
                     validate_key: do_validate,
                     partial_key: partial,
                     **rest,
                 }
+
+                if target_key in node:
+                    return_dict[target_key] = target
+
+                elif init_key in node:
+                    return_dict[init_key] = target
+
+                elif fn_key in node:
+                    return_dict[fn_key] = target"""
+
+                return_dict = {**node, **rest}
+
+                return return_dict
 
         else:
             mapping = {}

@@ -48,6 +48,16 @@ class Logger(TypedConfig):
         return checker.Logger(formatter)
 
 
+class WandB(TypedConfig):
+    __type__ = "wandb"
+    project: StrictStr
+
+    def make(self, **kwargs):
+        argument = override(kwargs, project=self.project)
+
+        return checker.WandB(**argument)
+
+
 class NSML(TypedConfig):
     __type__ = "nsml"
 
@@ -56,7 +66,7 @@ class NSML(TypedConfig):
 
 
 Storage = Union[Local, S3]
-Reporter = Union[Logger, NSML]
+Reporter = Union[Logger, NSML, WandB]
 
 
 class Checker(Config):

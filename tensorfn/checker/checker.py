@@ -25,7 +25,7 @@ class Checker:
             for storage in self.storages:
                 storage.checkpoint(obj, name)
 
-    def log(self, step, **kwargs):
+    def log(self, step=None, **kwargs):
         if dist.is_primary():
             for reporter in self.reporters:
                 reporter.log(step, **kwargs)
