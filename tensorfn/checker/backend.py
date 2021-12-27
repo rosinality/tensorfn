@@ -200,12 +200,22 @@ class S3(Storage):
             self.s3.upload_fileobj(buf, self.bucket, target_path)
 
 
+def get_decimal(value):
+    for i in range(10):
+        if value >= 10 ** (-i) - 1e-10:
+            return i
+
+    return 10
+
+
 def default_formatter(step, **kwargs):
     panels = [f"step: {step}"]
 
     for k, v in kwargs.items():
         if isinstance(v, float):
-            panels.append(f"{k}: {v:.3f}")
+            decimal = get_decimal(v) + 2
+            v = round(v, decimal)
+            panels.append(f"{k}: {v}")
 
         else:
             panels.append(f"{k}: {v}")
@@ -223,6 +233,23 @@ class Logger:
 
     def log(self, step, **kwargs):
         self.logger.info(self.formatter(step, **kwargs))
+
+
+class WandB:
+    def __init__(self, project):
+        if dist.is_primary():
+            import wandb
+
+            wandb.init(project=project)
+
+            self.wandb = wandb
+
+    def log(self, step, **kwargs):
+        self.wandb.log(kwargs, step=step)
+
+    def __del__(self):
+        if dist.is_primary():
+            self.wandb.finish()
 
 
 class NSML:
