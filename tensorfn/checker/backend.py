@@ -126,6 +126,42 @@ class Local(Storage):
         pass
 
 
+class NSMLV2:
+    def __init__(self, path):
+        self.root_path = path
+        self.name = os.environ["NSML_RUN_NAME"]
+        self.prev_run = os.getenv("NSML_PREV_RUN_NAME", "")
+        self.rerun_count = int(os.getenv("NSML_RERUN_COUNT", "0"))
+        self.path = os.path.join(self.root_path, self.name.replace("/", "_"))
+
+    def resume(self, name="resume.pt"):
+        if self.rerun_count == 0:
+            return None
+
+        target_path = os.path.join(
+            self.root_path, self.prev_run.replace("/", "_"), name
+        )
+
+        if not os.path.exists(target_path):
+            return None
+
+        return torch.load(target_path)
+
+    def save(self, data, name):
+        if isinstance(data, bytes):
+            flag = "wb"
+
+        else:
+            flag = "w"
+
+        target_path = os.path.join(self.path, name)
+
+        os.makedirs(os.path.split(target_path)[0], exist_ok=True)
+
+        with open(target_path, flag) as f:
+            f.write(data)
+
+
 def progress_callback(pbar):
     def wrap(bytes_amount):
         pbar.update(bytes_amount)
@@ -236,11 +272,28 @@ class Logger:
 
 
 class WandB:
-    def __init__(self, project):
+    def __init__(
+        self,
+        project,
+        group=None,
+        name=None,
+        notes=None,
+        resume=None,
+        tags=None,
+        id=None,
+    ):
         if dist.is_primary():
             import wandb
 
-            wandb.init(project=project)
+            wandb.init(
+                project=project,
+                group=group,
+                name=name,
+                notes=notes,
+                resume=resume,
+                tags=tags,
+                id=id,
+            )
 
             self.wandb = wandb
 

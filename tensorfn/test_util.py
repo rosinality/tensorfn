@@ -12,6 +12,16 @@ class StrictLinear(nn.Module):
         self.linear = nn.Linear(in_dim, out_dim)
 
 
+class StrictFeedForward(nn.Module):
+    def __init__(
+        self, in_dim: StrictInt, dim: StrictInt, out_dim: StrictInt, dropout=0.1
+    ):
+        super().__init__()
+
+        self.linear = nn.Linear(in_dim, out_dim)
+        self.dropout = nn.Dropout(dropout)
+
+
 def model_runner(x: torch.Tensor, encoder: nn.Module):
     return x, encoder
 

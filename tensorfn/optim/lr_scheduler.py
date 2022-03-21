@@ -102,6 +102,7 @@ class PhaseScheduler:
         }
 
     def load_state_dict(self, state_dict):
+        self.phase_param = state_dict["phase_param"]
         self.lr_phase = self.make_phase(state_dict["phase_param"])
         self.phase = state_dict["phase"]
         self.phase_step = state_dict["phase_step"]

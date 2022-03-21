@@ -3,6 +3,7 @@ import os
 import torch
 from torch import distributed as dist
 from torch import multiprocessing as mp
+from torch.distributed.launcher.api import elastic_launch
 
 from tensorfn import distributed as dist_fn
 
@@ -19,12 +20,37 @@ def find_free_port():
     return port
 
 
-def launch(fn, n_gpu_per_machine, n_machine=1, machine_rank=0, dist_url=None, args=()):
+def run(conf, fn, args=()):
+    launch(
+        fn,
+        conf.n_gpu,
+        conf.n_machine,
+        conf.machine_rank,
+        conf.dist_url,
+        conf.launch_config,
+        args=args,
+    )
+
+
+def launch(
+    fn,
+    n_gpu_per_machine,
+    n_machine=1,
+    machine_rank=0,
+    dist_url=None,
+    launch_config=None,
+    args=(),
+):
     world_size = n_machine * n_gpu_per_machine
 
     if world_size > 1:
         if "OMP_NUM_THREADS" not in os.environ:
             os.environ["OMP_NUM_THREADS"] = "1"
+
+        if launch_config is not None:
+            elastic_launch(config=launch_config, entrypoint=elastic_worker)(fn, args)
+
+            return
 
         if dist_url == "auto":
             if n_machine != 1:
@@ -49,11 +75,44 @@ def launch(fn, n_gpu_per_machine, n_machine=1, machine_rank=0, dist_url=None, ar
         fn(*args)
 
 
+def elastic_worker(fn, args):
+    if not torch.cuda.is_available():
+        raise OSError("CUDA is not available. Please check your environments")
+
+    local_rank = int(os.environ["LOCAL_RANK"])
+    n_gpu_per_machine = int(os.environ["LOCAL_WORLD_SIZE"])
+
+    try:
+        dist.init_process_group(
+            backend="NCCL",
+        )
+
+    except Exception:
+        raise OSError("failed to initialize NCCL groups")
+
+    dist_fn.synchronize()
+
+    if n_gpu_per_machine > torch.cuda.device_count():
+        raise ValueError(
+            f"specified n_gpu_per_machine larger than available device ({torch.cuda.device_count()})"
+        )
+
+    torch.cuda.set_device(local_rank)
+
+    if dist_fn.LOCAL_PROCESS_GROUP is not None:
+        raise ValueError("torch.distributed.LOCAL_PROCESS_GROUP is not None")
+
+    fn(*args)
+
+
 def distributed_worker(
     local_rank, fn, world_size, n_gpu_per_machine, machine_rank, dist_url, args
 ):
     if not torch.cuda.is_available():
         raise OSError("CUDA is not available. Please check your environments")
+
+    if local_rank == "ENV":
+        local_rank = int(os.environ["LOCAL_RANK"])
 
     global_rank = machine_rank * n_gpu_per_machine + local_rank
 

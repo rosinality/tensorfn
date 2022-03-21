@@ -51,9 +51,24 @@ class Logger(TypedConfig):
 class WandB(TypedConfig):
     __type__ = "wandb"
     project: StrictStr
+    group: Optional[StrictStr] = None
+    name: Optional[StrictStr] = None
+    notes: Optional[StrictStr] = None
+    resume: Optional[Union[StrictBool, StrictStr]] = None
+    tags: Optional[List[StrictStr]] = None
+    id: Optional[StrictStr] = None
 
     def make(self, **kwargs):
-        argument = override(kwargs, project=self.project)
+        argument = override(
+            kwargs,
+            project=self.project,
+            group=self.group,
+            name=self.name,
+            notes=self.notes,
+            resume=self.resume,
+            tags=self.tags,
+            id=self.id,
+        )
 
         return checker.WandB(**argument)
 

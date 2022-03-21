@@ -1,5 +1,5 @@
-import math
 import pickle
+import os
 
 import torch
 from torch import distributed as dist
@@ -29,6 +29,9 @@ def get_local_rank():
 
     if not dist.is_initialized():
         return 0
+
+    if "LOCAL_RANK" in os.environ:
+        return int(os.environ["LOCAL_RANK"])
 
     if LOCAL_PROCESS_GROUP is None:
         raise ValueError("tensorfn.distributed.LOCAL_PROCESS_GROUP is None")

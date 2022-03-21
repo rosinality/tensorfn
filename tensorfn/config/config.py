@@ -1,3 +1,4 @@
+import re
 import sys
 import collections
 import inspect
@@ -14,7 +15,11 @@ from pydantic import (
     StrictBool,
     ValidationError,
     ArbitraryTypeError,
+    dataclasses,
 )
+from torch.distributed.launcher.api import LaunchConfig
+
+# LaunchConfig = dataclasses.dataclass(LaunchConfig)
 
 
 class Config(BaseModel):
@@ -32,6 +37,7 @@ class MainConfig(BaseModel):
     dist_url: Optional[StrictStr]
     distributed: Optional[StrictBool]
     ckpt: Optional[StrictStr]
+    launch_config: typing.Any
 
 
 class TypedConfig(BaseModel):
@@ -256,6 +262,7 @@ def instance_traverse(node, *args, recursive=True, instantiate=False):
         fn_key = "__fn"
         validate_key = "__validate"
         partial_key = "__partial"
+        args_key = "__args"
 
         exclude_keys = {
             target_key,
@@ -263,6 +270,7 @@ def instance_traverse(node, *args, recursive=True, instantiate=False):
             fn_key,
             validate_key,
             partial_key,
+            args_key,
         }
 
         if target_key in node or init_key in node or fn_key in node:
@@ -290,6 +298,21 @@ def instance_traverse(node, *args, recursive=True, instantiate=False):
             signature = inspect.signature(obj)
 
             if instantiate:
+                if args_key in node:
+                    args_node = node[args_key]
+
+                    if len(args_node) > len(args):
+                        args_init = []
+
+                        for a in args_node[len(args) :]:
+                            args_init.append(
+                                instance_traverse(
+                                    a, recursive=recursive, instantiate=instantiate
+                                )
+                            )
+
+                        args = list(args) + args_init
+
                 pos_replace = list(signature.parameters.keys())[: len(args)]
 
                 kwargs = {}
@@ -315,6 +338,13 @@ def instance_traverse(node, *args, recursive=True, instantiate=False):
 
             else:
                 rest = {}
+
+                args_replaced = []
+                if args_key in node:
+                    for arg, k in zip(node[args_key], signature.parameters.keys()):
+                        rest[k] = arg
+                        args_replaced.append(k)
+
                 for k, v in node.items():
                     if k in exclude_keys:
                         continue
@@ -322,6 +352,11 @@ def instance_traverse(node, *args, recursive=True, instantiate=False):
                     rest[k] = instance_traverse(
                         v, recursive=recursive, instantiate=instantiate
                     )
+
+                    if k in args_replaced:
+                        raise TypeError(
+                            f"{target} got multiple values for argument '{k}'"
+                        )
 
                 if do_validate:
                     name = "instance." + target
@@ -373,6 +408,9 @@ def instance_traverse(node, *args, recursive=True, instantiate=False):
                 elif fn_key in node:
                     return_dict[fn_key] = target"""
 
+                for arg in args_replaced:
+                    del rest[arg]
+
                 return_dict = {**node, **rest}
 
                 return return_dict
@@ -405,3 +443,14 @@ class Instance(dict):
 
     def make(self, *args):
         return instance_traverse(self, *args, instantiate=True)
+
+    def instantiate(self, *args):
+        return self.make(*args)
+
+
+def instantiate(instance, *args):
+    try:
+        return instance.make(*args)
+
+    except AttributeError:
+        return instance_traverse(instance, *args, instantiate=True)
