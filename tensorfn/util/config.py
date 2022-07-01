@@ -262,8 +262,10 @@ def load_config(config_model, config, overrides=(), show=True):
     return conf
 
 
-def load_arg_config(config_model, show=False, elastic=False):
-    parser = preset_argparser(elastic=elastic)
+def load_arg_config(config_model, show=False, elastic=False, parser=None):
+    if parser is None:
+        parser = preset_argparser(elastic=elastic)
+
     args = parser.parse_args()
 
     conf = load_config(config_model, args.conf, args.opts, show)
