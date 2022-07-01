@@ -247,7 +247,47 @@ def resolve_module(path):
     return obj
 
 
-def instance_traverse(node, *args, recursive=True, instantiate=False):
+def flatten_tree(node):
+    res = []
+
+    if isinstance(node, collections.abc.Sequence) and not isinstance(node, str):
+        for n in node:
+            res.extend(flatten_tree(n))
+
+        return res
+
+    if isinstance(node, collections.abc.Mapping):
+        res.append(node)
+
+        for v in node.values():
+            res.extend(flatten_tree(v))
+
+    return res
+
+
+SINGLETON = {}
+
+
+def init_singleton(nodes):
+    key_key = "__key"
+
+    for node in nodes:
+        if key_key not in node:
+            continue
+
+        node_key = node[key_key]
+
+        if node_key in SINGLETON:
+            continue
+
+        restrict_node = {k: v for k, v in node.items() if k != key_key}
+        instance_traverse(restrict_node)
+        SINGLETON[node_key] = instance_traverse(restrict_node, instantiate=True)
+
+
+def instance_traverse(
+    node, *args, recursive=True, instantiate=False, keyword_args=None
+):
     if isinstance(node, collections.abc.Sequence) and not isinstance(node, str):
         seq = [
             instance_traverse(i, recursive=recursive, instantiate=instantiate)
@@ -263,6 +303,7 @@ def instance_traverse(node, *args, recursive=True, instantiate=False):
         validate_key = "__validate"
         partial_key = "__partial"
         args_key = "__args"
+        key_key = "__key"
 
         exclude_keys = {
             target_key,
@@ -271,6 +312,7 @@ def instance_traverse(node, *args, recursive=True, instantiate=False):
             validate_key,
             partial_key,
             args_key,
+            key_key,
         }
 
         if target_key in node or init_key in node or fn_key in node:
@@ -298,6 +340,9 @@ def instance_traverse(node, *args, recursive=True, instantiate=False):
             signature = inspect.signature(obj)
 
             if instantiate:
+                if key_key in node:
+                    return SINGLETON[node[key_key]]
+
                 if args_key in node:
                     args_node = node[args_key]
 
@@ -321,6 +366,11 @@ def instance_traverse(node, *args, recursive=True, instantiate=False):
                         continue
 
                     if k in pos_replace:
+                        continue
+
+                    if keyword_args is not None and k in keyword_args:
+                        kwargs[k] = keyword_args[k]
+
                         continue
 
                     kwargs[k] = instance_traverse(
@@ -393,21 +443,6 @@ def instance_traverse(node, *args, recursive=True, instantiate=False):
                                 f"Validation for {target} with {v} is failed:\n{e}"
                             ) from e
 
-                """return_dict = {
-                    validate_key: do_validate,
-                    partial_key: partial,
-                    **rest,
-                }
-
-                if target_key in node:
-                    return_dict[target_key] = target
-
-                elif init_key in node:
-                    return_dict[init_key] = target
-
-                elif fn_key in node:
-                    return_dict[fn_key] = target"""
-
                 for arg in args_replaced:
                     del rest[arg]
 
@@ -441,16 +476,20 @@ class Instance(dict):
 
         return instance
 
-    def make(self, *args):
-        return instance_traverse(self, *args, instantiate=True)
+    def make(self, *args, **kwargs):
+        init_singleton(flatten_tree(self))
 
-    def instantiate(self, *args):
-        return self.make(*args)
+        return instance_traverse(self, *args, instantiate=True, keyword_args=kwargs)
+
+    def instantiate(self, *args, **kwargs):
+        return self.make(*args, **kwargs)
 
 
-def instantiate(instance, *args):
+def instantiate(instance, *args, **kwargs):
     try:
-        return instance.make(*args)
+        return instance.make(*args, **kwargs)
 
     except AttributeError:
-        return instance_traverse(instance, *args, instantiate=True)
+        init_singleton(flatten_tree(instance))
+
+        return instance_traverse(instance, *args, instantiate=True, keyword_args=kwargs)

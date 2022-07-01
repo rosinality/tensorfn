@@ -61,7 +61,7 @@ def build(__key, __name, *args, **kwargs):
     node = {__key: __name}
 
     if len(args) > 0:
-        node["__args"] = args
+        node["__args"] = list(args)
 
     node = {**node, **kwargs}
 
@@ -77,15 +77,36 @@ def build_fn(__name, *args, **kwargs):
 
 
 class Init:
-    def __init__(self, name, fn=False):
+    def __init__(self, name, fn=False, key=None):
         self.name = name
         self.fn = fn
+        self.key = key
 
     def __call__(self, *args, **kwargs):
         if self.fn:
             return build_fn(self.name, *args, **kwargs)
 
-        return build_init(self.name, *args, **kwargs)
+        res = build_init(self.name, *args, **kwargs)
+        if self.key is not None:
+            res["__key"] = self.key
+
+        return res
+
+
+class Single:
+    def __init__(self):
+        self.counter = 0
+
+    def __getitem__(self, obj):
+        fn = False
+
+        if not isinstance(obj, str):
+            obj = import_to_str(obj)
+
+        key = f"{obj}#{self.counter}"
+        self.counter += 1
+
+        return Init(obj, fn, key=key)
 
 
 class LazyCall:
@@ -288,3 +309,4 @@ class Field(dict):
 L = LazyCall()
 F = LazyFn()
 field = Field
+single = Single()
