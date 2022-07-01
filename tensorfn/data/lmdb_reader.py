@@ -21,6 +21,24 @@ def str_reader(byte_str):
     return byte_str.decode("utf-8")
 
 
+def get_reader(reader):
+    if isinstance(reader, str):
+        read_fn = {
+            "pickle": pickle_reader,
+            "torch": torch_reader,
+            "raw": raw_reader,
+            "str": str_reader,
+        }[reader]
+
+    elif callable(reader):
+        read_fn = reader
+
+    else:
+        raise ValueError('reader should be "pickle", "torch", "raw", "str" or callable')
+
+    return read_fn
+
+
 class LMDBReader:
     def __init__(
         self, path, reader="torch", map_size=1024 ** 4, max_readers=126, lazy=True
@@ -55,23 +73,7 @@ class LMDBReader:
             self.length = 0
 
     def get_reader(self, reader):
-        if isinstance(reader, str):
-            read_fn = {
-                "pickle": pickle_reader,
-                "torch": torch_reader,
-                "raw": raw_reader,
-                "str": str_reader,
-            }[reader]
-
-        elif callable(reader):
-            read_fn = reader
-
-        else:
-            raise ValueError(
-                'reader should be "pickle", "torch", "raw", "str" or callable'
-            )
-
-        return read_fn
+        return get_reader(reader)
 
     def get(self, key, reader=None):
         if self.env is None:
